@@ -3,7 +3,7 @@
 # asdf-gcc-arm-none-eabi [![Build](https://github.com/dlech/asdf-gcc-arm-none-eabi/actions/workflows/build.yml/badge.svg)](https://github.com/dlech/asdf-gcc-arm-none-eabi/actions/workflows/build.yml) [![Lint](https://github.com/dlech/asdf-gcc-arm-none-eabi/actions/workflows/lint.yml/badge.svg)](https://github.com/dlech/asdf-gcc-arm-none-eabi/actions/workflows/lint.yml)
 
 
-[gcc-arm-none-eabi](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain) plugin for the [asdf version manager](https://asdf-vm.com).
+[Arm GNU Toolchain](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain) bare-metal target (arm-none-eabi) plugin for the [asdf version manager](https://asdf-vm.com).
 
 </div>
 
