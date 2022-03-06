@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-# TODO: Ensure this is the correct GitHub homepage where releases can be downloaded for gcc-arm-none-eabi.
-GH_REPO="https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain"
 TOOL_NAME="gcc-arm-none-eabi"
 TOOL_TEST="arm-none-eabi-gcc --version"
 
@@ -12,28 +10,86 @@ fail() {
   exit 1
 }
 
-curl_opts=(-fsSL)
+[ "${BASH_VERSINFO:-0}" -lt 4 ] && fail "requires bash v4 or higher"
 
-# NOTE: You might want to remove this if gcc-arm-none-eabi is not hosted on GitHub releases.
-if [ -n "${GITHUB_API_TOKEN:-}" ]; then
-  curl_opts=("${curl_opts[@]}" -H "Authorization: token $GITHUB_API_TOKEN")
-fi
+curl_opts=(--progress-bar -fSL)
 
-sort_versions() {
-  sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z\1/; s/$/.z/; G; s/\n/ /' |
-    LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n | awk '{print $2}'
+# shellcheck disable=SC2034
+declare -A windows_versions=(
+  ["A-10.3-2020.11"]="https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-mingw-w64-i686-arm-none-eabi.tar.xz"
+  ["A-10.3-2021.07"]="https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-mingw-w64-i686-arm-none-eabi.tar.xz"
+  ["RM-10-2020-q4-major"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10-2020q4/gcc-arm-none-eabi-10-2020-q4-major-win32.zip"
+  ["RM-10.3-2021.07"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.07/gcc-arm-none-eabi-10.3-2021.07-win32.zip"
+  ["RM-10.3-2021.10"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-win32.zip"
+  ["11.2-2022.02"]="https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-mingw-w64-i686-arm-none-eabi.zip"
+)
+
+# shellcheck disable=SC2034
+declare -A linux_x86_64_versions=(
+  ["A-10.3-2020.11"]="https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-arm-none-eabi.tar.xz"
+  ["A-10.3-2021.07"]="https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-arm-none-eabi.tar.xz"
+  ["RM-10-2020-q4-major"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10-2020q4/gcc-arm-none-eabi-10-2020-q4-major-x86_64-linux.tar.bz2"
+  ["RM-10.3-2021.07"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.07/gcc-arm-none-eabi-10.3-2021.07-x86_64-linux.tar.bz2"
+  ["RM-10.3-2021.10"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-aarch64-linux.tar.bz2"
+  ["11.2-2022.02"]="https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-x86_64-arm-none-eabi.tar.xz"
+)
+
+# shellcheck disable=SC2034
+declare -A linux_aarch64_versions=(
+  ["A-10.3-2020.11"]="https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-aarch64-arm-none-eabi.tar.xz"
+  ["A-10.3-2021.07"]="https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-aarch64-arm-none-eabi.tar.xz"
+  ["RM-10-2020-q4-major"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10-2020q4/gcc-arm-none-eabi-10-2020-q4-major-aarch64-linux.tar.bz2"
+  ["RM-10.3-2021.07"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.07/gcc-arm-none-eabi-10.3-2021.07-aarch64-linux.tar.bz2"
+  ["RM-10.3-2021.10"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-aarch64-linux.tar.bz2"
+  ["11.2-2022.02"]="https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-aarch64-arm-none-eabi.tar.xz"
+)
+
+# shellcheck disable=SC2034
+declare -A mac_x86_64_versions=(
+  ["RM-10-2020-q4-major"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10-2020q4/gcc-arm-none-eabi-10-2020-q4-major-mac.tar.bz2"
+  ["RM-10.3-2021.07"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.07/gcc-arm-none-eabi-10.3-2021.07-mac-10.14.6.tar.bz2"
+  ["RM-10.3-2021.10"]="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-src.tar.bz2"
+  ["11.2-2022.02"]="https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-darwin-x86_64-arm-none-eabi.tar.xz"
+)
+
+# returns the variable name of one of the above based on the current OS and architecture
+get_versions_name() {
+  if [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]]; then
+    echo "windows_versions"
+  elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    local arch
+    arch=$(uname -m)
+
+    case $arch in
+    x86_64 | aarch64)
+      echo "linux_${arch}_versions"
+      ;;
+    *)
+      fail "unsupported architecture: $arch"
+      ;;
+    esac
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "mac_x86_64_versions"
+  else
+    fail "unsupported OS: $OSTYPE"
+  fi
 }
 
-list_github_tags() {
-  git ls-remote --tags --refs "$GH_REPO" |
-    grep -o 'refs/tags/.*' | cut -d/ -f3- |
-    sed 's/^v//' # NOTE: You might want to adapt this sed to remove non-version strings from tags
+# gets the URL given a version
+get_download_url() {
+  local version
+  version="$1"
+
+  declare -n versions
+  versions=$(get_versions_name)
+
+  echo "${versions[$version]}"
 }
 
 list_all_versions() {
-  # TODO: Adapt this. By default we simply list the tag names from GitHub releases.
-  # Change this function if gcc-arm-none-eabi has other means of determining installable versions.
-  list_github_tags
+  declare -n versions
+  versions=$(get_versions_name)
+  echo "${!versions[@]}"
 }
 
 download_release() {
@@ -41,8 +97,7 @@ download_release() {
   version="$1"
   filename="$2"
 
-  # TODO: Adapt the release URL convention for gcc-arm-none-eabi
-  url="$GH_REPO/archive/v${version}.tar.gz"
+  url=$(get_download_url "$version")
 
   echo "* Downloading $TOOL_NAME release $version..."
   curl "${curl_opts[@]}" -o "$filename" -C - "$url" || fail "Could not download $url"
@@ -61,7 +116,6 @@ install_version() {
     mkdir -p "$install_path"
     cp -r "$ASDF_DOWNLOAD_PATH"/* "$install_path"
 
-    # TODO: Asert gcc-arm-none-eabi executable exists.
     local tool_cmd
     tool_cmd="$(echo "$TOOL_TEST" | cut -d' ' -f1)"
     test -x "$install_path/bin/$tool_cmd" || fail "Expected $install_path/bin/$tool_cmd to be executable."

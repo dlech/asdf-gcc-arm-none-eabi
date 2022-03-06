@@ -16,6 +16,9 @@ jobs:
           - macos-latest
     runs-on: ${{ matrix.os }}
     steps:
+      - name: install bash
+        if: runner.os == 'macOS'
+        run: brew install bash
       - name: asdf_plugin_test
         uses: asdf-vm/actions/plugin-test@v1
         with:
