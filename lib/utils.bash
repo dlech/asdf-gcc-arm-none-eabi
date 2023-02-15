@@ -86,8 +86,12 @@ get_versions_name() {
     arch=$(arch)
 
     case $arch in
-    x86_64 | arm64)
-      echo "mac_${arch}_versions"
+    # arch still reports i386 on x86_64 macs
+    i386)
+      echo "mac_x86_64_versions"
+      ;;
+    arm64)
+      echo "mac_arm64_versions"
       ;;
     *)
       fail "unsupported architecture: $arch"
